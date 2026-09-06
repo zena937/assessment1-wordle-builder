@@ -16,7 +16,7 @@ async function main() {
   for (const w of words) {
     await prisma.word.upsert({
       where: { word: w.word },
-      update: {},
+      update: w,
       create: w,
     });
   }

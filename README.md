@@ -4,28 +4,56 @@ A web application for Speech Pathology students and teachers to create phoneme-b
 
 ## 📋 About
 
-This application allows teachers to build phoneme-based activities that can be downloaded as standalone HTML files. Built with Next.js 14, it features:
+This application allows teachers to build phoneme-based activities that can be downloaded as standalone HTML files.
 
-- **Wordle Game** - Create phoneme-based Wordle games with hints
-- **Word Search** - Generate phoneme-based word searches
-- **Theme Support** - Light/Dark mode with cookie persistence
-- **Download** - Export activities as standalone HTML files
-- **Responsive** - Works on all devices
+### Assessment 2 - Full-Stack Implementation
 
-## 🚀 Getting Started
+This project extends the frontend builder with:
+- **Backend API** - RESTful endpoints for word management
+- **Database** - SQLite with Prisma ORM
+- **Docker** - Containerized application
+
+## 🚀 Technologies
+
+- **Next.js 14** - React framework with App Router
+- **TypeScript** - Type-safe code
+- **Prisma ORM** - Database access
+- **SQLite** - Lightweight database
+- **Bootstrap 5** - Responsive UI
+- **Docker** - Containerization
+
+## 📡 API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/health` | GET | Health check - returns 200 OK |
+| `/api/words` | GET | Retrieve all words |
+| `/api/words` | POST | Create a new word |
+| `/api/words/[id]` | GET | Get a single word |
+| `/api/words/[id]` | PUT | Update a word |
+| `/api/words/[id]` | DELETE | Delete a word |
+
+## 🏃‍♂️ Getting Started
 
 ### Prerequisites
-- Node.js 18.x or later
+- Node.js 18+
 - npm or yarn
+- Docker (optional)
 
 ### Installation
 
 ```bash
-# Clone the repository
-git clone <your-repo-url>
-
 # Install dependencies
 npm install
 
-# Run the development server
+# Generate Prisma client
+npx prisma generate
+
+# Set up database
+npx prisma migrate dev --name init
+
+# Seed database
+npx prisma db seed
+
+# Start development server
 npm run dev

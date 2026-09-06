@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import PhonemeKeyboard from './PhonemKeyboard';
 import WordSearch from './WordSearch';
 import GenerateHTML from './GenerateHTML';
@@ -22,6 +22,28 @@ const WordSearchBuilder = () => {
   const [currentPhonemes, setCurrentPhonemes] = useState<string[]>([]);
   const [showPreview, setShowPreview] = useState(false);
   const [generatedHTML, setGeneratedHTML] = useState('');
+  const [apiWords, setApiWords] = useState<WordSearchWord[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch words from API on component mount
+  useEffect(() => {
+    fetch('/api/words')
+      .then(res => res.json())
+      .then(data => {
+        // Convert API data to WordSearchWord format
+        const formatted = data.map((word: any) => ({
+          id: word.id,
+          phonemes: Array.isArray(word.phonemes) ? word.phonemes : JSON.parse(word.phonemes),
+          display: word.word
+        }));
+        setApiWords(formatted);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Failed to fetch words:', err);
+        setLoading(false);
+      });
+  }, []);
 
   // Add phoneme to current word being built
   const addPhoneme = (phoneme: string) => {
@@ -748,9 +770,11 @@ const WordSearchBuilder = () => {
                   </span>
                 );
               })}
-              {words.length === 0 && (
+              {loading ? (
+                <span className="text-muted">Loading words from database...</span>
+              ) : words.length === 0 ? (
                 <span className="text-muted">No words added yet. Build words using the keyboard above.</span>
-              )}
+              ) : null}
             </div>
             <small className="text-muted d-block mt-1">
               Add at least 3 words to generate a puzzle
@@ -787,4 +811,4 @@ const WordSearchBuilder = () => {
   );
 };
 
-export default WordSearchBuilder;  // ← MUST HAVE THIS AT THE END
+export default WordSearchBuilder;
