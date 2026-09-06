@@ -1,39 +1,62 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Cookies from 'js-cookie';
 
 export default function Settings() {
   const [theme, setTheme] = useState('light');
   const [fontSize, setFontSize] = useState('medium');
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    const savedFontSize = localStorage.getItem('fontSize') || 'medium';
+    const savedTheme = Cookies.get('theme') || 'light';
+    const savedFontSize = Cookies.get('fontSize') || 'medium';
+    
     setTheme(savedTheme);
     setFontSize(savedFontSize);
     
-    document.documentElement.style.fontSize = 
-      savedFontSize === 'large' ? '1.2rem' : 
+    // Apply theme (handle 'system' option)
+    if (savedTheme === 'system') {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+    } else {
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    }
+    
+    document.documentElement.style.fontSize =
+      savedFontSize === 'large' ? '1.2rem' :
       savedFontSize === 'small' ? '0.9rem' : '1rem';
   }, []);
 
   const handleThemeChange = (newTheme: string) => {
     setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
-    document.documentElement.setAttribute('data-theme', newTheme);
+    Cookies.set('theme', newTheme, { expires: 365 });
+    
+    // If system theme is selected, detect system preference
+    if (newTheme === 'system') {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+    } else {
+      document.documentElement.setAttribute('data-theme', newTheme);
+    }
   };
 
   const handleFontSizeChange = (size: string) => {
     setFontSize(size);
-    localStorage.setItem('fontSize', size);
-    document.documentElement.style.fontSize = 
-      size === 'large' ? '1.2rem' : 
+    Cookies.set('fontSize', size, { expires: 365 });
+    document.documentElement.style.fontSize =
+      size === 'large' ? '1.2rem' :
       size === 'small' ? '0.9rem' : '1rem';
+  };
+
+  // Get display name for theme
+  const getThemeDisplayName = (themeValue: string) => {
+    if (themeValue === 'system') return 'System';
+    return themeValue.charAt(0).toUpperCase() + themeValue.slice(1);
   };
 
   return (
     <div>
-      <h1 className="mb-4" style={{ color: 'var(--text-color)' }}>⚙️ Settings</h1>
+      <h1 className="mb-4">⚙️ Settings</h1>
       
       <div className="card mb-4">
         <div className="card-body">
@@ -52,10 +75,16 @@ export default function Settings() {
             >
               🌙 Dark
             </button>
+            <button 
+              className={`btn ${theme === 'system' ? 'btn-primary' : 'btn-outline-secondary'}`}
+              onClick={() => handleThemeChange('system')}
+            >
+              💻 System
+            </button>
           </div>
           <div className="mt-2">
             <small className="text-muted">
-              Current theme: <strong>{theme.charAt(0).toUpperCase() + theme.slice(1)}</strong>
+              Current theme: <strong>{getThemeDisplayName(theme)}</strong>
             </small>
           </div>
         </div>
@@ -97,10 +126,10 @@ export default function Settings() {
         <div className="card-body">
           <h5>ℹ️ About Settings</h5>
           <p className="text-muted">
-            Your preferences are saved in your browser's local storage and will persist across sessions.
+            Your preferences are saved in cookies and will persist across sessions.
           </p>
           <ul>
-            <li><strong>Theme:</strong> Light or Dark mode</li>
+            <li><strong>Theme:</strong> Light, Dark, or System (follows your device)</li>
             <li><strong>Font Size:</strong> Small, Medium, or Large</li>
           </ul>
         </div>
