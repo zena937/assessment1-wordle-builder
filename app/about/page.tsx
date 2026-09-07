@@ -36,7 +36,7 @@ export default function About() {
           <p><strong>Student Number:</strong> 22409698</p>
           <p><strong>Course:</strong> CSE5006 - Web Development</p>
           <p><strong>Subject:</strong> CSE3CWA / CSE5006</p>
-          <p><strong>Assessment:</strong> 1 - Frontend Design and Usability</p>
+          <p><strong>Assessment:</strong> 2 - Backend implementation and database integration</p>
         </div>
       </div>
 

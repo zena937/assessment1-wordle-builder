@@ -8,11 +8,11 @@ const Footer = () => {
       color: 'var(--text-color)'
     }}>
       <p className="mb-0">
-        Assessment 1 - CSE5006 | Your Name | Student ID: 12345678
-      </p>
-      <small style={{ opacity: 0.7 }}>
-        © 2026 Phoneme Activity Builder
-      </small>
+      Assessment 2 - CSE5006 | Zena Oosthuizen | Student ID: 22409698
+    </p>
+    <small style={{ opacity: 0.7 }}>
+      © 2026 Phoneme Activity Builder
+    </small>
     </footer>
   );
 };
