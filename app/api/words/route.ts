@@ -1,18 +1,23 @@
 import { NextResponse } from 'next/server';
-
-// Temporary in-memory data (works without database)
-let words = [
-  { id: '1', word: 'THIN', phonemes: ['θ', 'ɪ', 'n'], hint: 'θ ɪ n as in THIN', difficulty: 'EASY' },
-  { id: '2', word: 'SHIP', phonemes: ['ʃ', 'ɪ', 'p'], hint: 'ʃ ɪ p as in SHIP', difficulty: 'EASY' },
-  { id: '3', word: 'CHIN', phonemes: ['tʃ', 'ɪ', 'n'], hint: 'tʃ ɪ n as in CHIN', difficulty: 'MEDIUM' },
-  { id: '4', word: 'JAM', phonemes: ['dʒ', 'æ', 'm'], hint: 'dʒ æ m as in JAM', difficulty: 'EASY' },
-  { id: '5', word: 'FAN', phonemes: ['f', 'æ', 'n'], hint: 'f æ n as in FAN', difficulty: 'EASY' },
-];
-
-let nextId = 6;
+import prisma from '@/app/lib/prisma';
 
 export async function GET() {
-  return NextResponse.json(words);
+  try {
+    const words = await prisma.word.findMany({
+      orderBy: { word: 'asc' }
+    });
+    
+    // Parse phonemes back to array
+    const wordsWithParsedPhonemes = words.map(w => ({
+      ...w,
+      phonemes: JSON.parse(w.phonemes)
+    }));
+    
+    return NextResponse.json(wordsWithParsedPhonemes);
+  } catch (error) {
+    console.error('Error fetching words:', error);
+    return NextResponse.json({ error: 'Failed to fetch words' }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
@@ -26,17 +31,24 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
     
-    const newWord = {
-      id: String(nextId++),
-      word: word.toUpperCase(),
-      phonemes,
-      hint: hint || '',
-      difficulty: difficulty || 'EASY'
-    };
+    const newWord = await prisma.word.create({
+      data: { 
+        word: word.toUpperCase(), 
+        phonemes: JSON.stringify(phonemes),
+        hint, 
+        difficulty: difficulty || 'EASY' 
+      }
+    });
     
-    words.push(newWord);
-    return NextResponse.json(newWord, { status: 201 });
-  } catch (error) {
+    return NextResponse.json({
+      ...newWord,
+      phonemes: JSON.parse(newWord.phonemes)
+    }, { status: 201 });
+  } catch (error: any) {
+    if (error.code === 'P2002') {
+      return NextResponse.json({ error: 'Word already exists' }, { status: 409 });
+    }
+    console.error('Error creating word:', error);
     return NextResponse.json({ error: 'Failed to create word' }, { status: 500 });
   }
 }

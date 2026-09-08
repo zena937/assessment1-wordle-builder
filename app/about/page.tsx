@@ -35,7 +35,7 @@ export default function About() {
           <p><strong>Name:</strong> Zena Oosthuizen</p>
           <p><strong>Student Number:</strong> 22409698</p>
           <p><strong>Course:</strong> CSE5006 - Web Development</p>
-          <p><strong>Subject:</strong> CSE3CWA / CSE5006</p>
+          <p><strong>Subject:</strong> CSE3CWA</p>
           <p><strong>Assessment:</strong> 2 - Backend implementation and database integration</p>
         </div>
       </div>

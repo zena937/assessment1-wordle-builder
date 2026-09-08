@@ -1,27 +1,27 @@
-import { NextResponse } from 'next/server';
-
-const words = [
-  { id: '1', word: 'THIN', phonemes: ['θ', 'ɪ', 'n'], hint: 'θ ɪ n as in THIN', difficulty: 'EASY' },
-  { id: '2', word: 'SHIP', phonemes: ['ʃ', 'ɪ', 'p'], hint: 'ʃ ɪ p as in SHIP', difficulty: 'EASY' },
-  { id: '3', word: 'CHIN', phonemes: ['tʃ', 'ɪ', 'n'], hint: 'tʃ ɪ n as in CHIN', difficulty: 'MEDIUM' },
-  { id: '4', word: 'JAM', phonemes: ['dʒ', 'æ', 'm'], hint: 'dʒ æ m as in JAM', difficulty: 'EASY' },
-  { id: '5', word: 'FAN', phonemes: ['f', 'æ', 'n'], hint: 'f æ n as in FAN', difficulty: 'EASY' },
-];
+import { NextRequest, NextResponse } from 'next/server';
+import prisma from '@/app/lib/prisma';
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
-    const word = words.find(w => w.id === id);
+    
+    const word = await prisma.word.findUnique({
+      where: { id }
+    });
     
     if (!word) {
       return NextResponse.json({ error: 'Word not found' }, { status: 404 });
     }
     
-    return NextResponse.json(word);
+    return NextResponse.json({
+      ...word,
+      phonemes: JSON.parse(word.phonemes)
+    });
   } catch (error) {
+    console.error('Error fetching word:', error);
     return NextResponse.json({ error: 'Failed to fetch word' }, { status: 500 });
   }
 }
@@ -33,8 +33,33 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    return NextResponse.json({ id, ...body });
-  } catch (error) {
+    const { word, phonemes, hint, difficulty } = body;
+    
+    if (!word || !phonemes || phonemes.length === 0) {
+      return NextResponse.json({ 
+        error: 'Word and phonemes are required' 
+      }, { status: 400 });
+    }
+    
+    const updated = await prisma.word.update({
+      where: { id },
+      data: { 
+        word: word.toUpperCase(), 
+        phonemes: JSON.stringify(phonemes),
+        hint, 
+        difficulty 
+      }
+    });
+    
+    return NextResponse.json({
+      ...updated,
+      phonemes: JSON.parse(updated.phonemes)
+    });
+  } catch (error: any) {
+    if (error.code === 'P2025') {
+      return NextResponse.json({ error: 'Word not found' }, { status: 404 });
+    }
+    console.error('Error updating word:', error);
     return NextResponse.json({ error: 'Failed to update word' }, { status: 500 });
   }
 }
@@ -45,8 +70,17 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    return NextResponse.json({ id, message: 'Word deleted' });
-  } catch (error) {
+    
+    await prisma.word.delete({
+      where: { id }
+    });
+    
+    return NextResponse.json({ message: 'Word deleted successfully' });
+  } catch (error: any) {
+    if (error.code === 'P2025') {
+      return NextResponse.json({ error: 'Word not found' }, { status: 404 });
+    }
+    console.error('Error deleting word:', error);
     return NextResponse.json({ error: 'Failed to delete word' }, { status: 500 });
   }
 }
