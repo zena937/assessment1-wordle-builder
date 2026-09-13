@@ -16,10 +16,7 @@ export async function GET(
       return NextResponse.json({ error: 'Word not found' }, { status: 404 });
     }
     
-    return NextResponse.json({
-      ...word,
-      phonemes: JSON.parse(word.phonemes)
-    });
+    return NextResponse.json(word);
   } catch (error) {
     console.error('Error fetching word:', error);
     return NextResponse.json({ error: 'Failed to fetch word' }, { status: 500 });
@@ -45,21 +42,17 @@ export async function PUT(
       where: { id },
       data: { 
         word: word.toUpperCase(), 
-        phonemes: JSON.stringify(phonemes),
+        phonemes,
         hint, 
         difficulty 
       }
     });
     
-    return NextResponse.json({
-      ...updated,
-      phonemes: JSON.parse(updated.phonemes)
-    });
+    return NextResponse.json(updated);
   } catch (error: any) {
     if (error.code === 'P2025') {
       return NextResponse.json({ error: 'Word not found' }, { status: 404 });
     }
-    console.error('Error updating word:', error);
     return NextResponse.json({ error: 'Failed to update word' }, { status: 500 });
   }
 }
@@ -80,7 +73,6 @@ export async function DELETE(
     if (error.code === 'P2025') {
       return NextResponse.json({ error: 'Word not found' }, { status: 404 });
     }
-    console.error('Error deleting word:', error);
     return NextResponse.json({ error: 'Failed to delete word' }, { status: 500 });
   }
 }

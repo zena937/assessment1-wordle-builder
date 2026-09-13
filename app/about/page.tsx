@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 export default function About() {
-  const [showVideo, setShowVideo] = useState(true);
+  const [showVideo, setShowVideo] = useState(false);
 
   return (
     <div>
@@ -43,34 +43,10 @@ export default function About() {
       <div className="card">
         <div className="card-body">
           <h5>🎥 How to Use This Website</h5>
-          <p>Watch the demonstration below for a complete walkthrough:</p>
-
-          {showVideo ? (
-            <div className="text-center">
-              <div className="ratio ratio-16x9 bg-light rounded w-75 mx-auto">
-                <video controls className="w-100 rounded">
-                  <source src="/demo-video.mp4" type="video/mp4" />
-                  Your browser does not support the video tag.
-                </video>
-              </div>
-              <button
-                onClick={() => setShowVideo(false)}
-                className="btn btn-secondary mt-3"
-              >
-                Hide Video
-              </button>
-                <p className="mt-2 text-muted small">
-                Note: Replace /demo-video.mp4 with your actual video file
-              </p>
-            </div>
-          ) : (
-            <button
-              onClick={() => setShowVideo(true)}
-              className="btn btn-primary"
-            >
-              Show Video
-            </button>
-          )}
+          <p>Watch the demonstration video included in your submission for a complete walkthrough.</p>
+          <p className="text-muted small">
+            Note: The video is not included in this draft submission.
+          </p>
         </div>
       </div>
     </div>

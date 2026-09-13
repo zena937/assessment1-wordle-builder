@@ -3,16 +3,16 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model Word {
   id          String    @id @default(cuid())
   word        String    @unique
-  phonemes    String    // Store as JSON string instead of String[]
+  phonemes    String[]
   hint        String?
-  difficulty  String    @default("EASY")  // String instead of enum
+  difficulty  String    @default("EASY")
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   activities  ActivityWord[]
@@ -21,7 +21,7 @@ model Word {
 model Activity {
   id          String    @id @default(cuid())
   name        String
-  type        String    @default("WORDLE")  // String instead of enum
+  type        String    @default("WORDLE")
   description String?
   maxAttempts Int?      @default(6)
   gridSize    Int?      @default(12)

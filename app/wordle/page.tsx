@@ -1,44 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import WordleGame from '../Components/WordleGame';
 import GenerateHTML from '../Components/GenerateHTML';
 import PhonemeKeyboard from '../Components/PhonemKeyboard';
 
-// HCE Word List - 3 phoneme words
-const wordList: { word: string; phonemes: string[]; hint: string }[] = [
-  { word: 'BED', phonemes: ['b', 'e', 'd'], hint: 'b e d as in BED' },
-  { word: 'BID', phonemes: ['b', 'ɪ', 'd'], hint: 'b ɪ d as in BID' },
-  { word: 'BAD', phonemes: ['b', 'æ', 'd'], hint: 'b æ d as in BAD' },
-  { word: 'BUD', phonemes: ['b', 'ɐ', 'd'], hint: 'b ɐ d as in BUD' },
-  { word: 'BIRD', phonemes: ['b', 'ɜː', 'd'], hint: 'b ɜː d as in BIRD' },
-  { word: 'BARK', phonemes: ['b', 'ɐː', 'k'], hint: 'b ɐː k as in BARK' },
-  { word: 'BOOK', phonemes: ['b', 'ʊ', 'k'], hint: 'b ʊ k as in BOOK' },
-  { word: 'BOOT', phonemes: ['b', 'ʉː', 't'], hint: 'b ʉː t as in BOOT' },
-  { word: 'BOAT', phonemes: ['b', 'əʉ', 't'], hint: 'b əʉ t as in BOAT' },
-  { word: 'BIKE', phonemes: ['b', 'ɑe', 'k'], hint: 'b ɑe k as in BIKE' },
-  { word: 'BAIT', phonemes: ['b', 'æɪ', 't'], hint: 'b æɪ t as in BAIT' },
-  { word: 'BOIL', phonemes: ['b', 'oɪ', 'l'], hint: 'b oɪ l as in BOIL' },
-  { word: 'BEARD', phonemes: ['b', 'ɪə', 'd'], hint: 'b ɪə d as in BEARD' },
-  { word: 'THIN', phonemes: ['θ', 'ɪ', 'n'], hint: 'θ ɪ n as in THIN' },
-  { word: 'THEN', phonemes: ['ð', 'e', 'n'], hint: 'ð e n as in THEN' },
-  { word: 'SHIP', phonemes: ['ʃ', 'ɪ', 'p'], hint: 'ʃ ɪ p as in SHIP' },
-  { word: 'CHIN', phonemes: ['tʃ', 'ɪ', 'n'], hint: 'tʃ ɪ n as in CHIN' },
-  { word: 'JAM', phonemes: ['dʒ', 'æ', 'm'], hint: 'dʒ æ m as in JAM' },
-  { word: 'YES', phonemes: ['j', 'e', 's'], hint: 'j e s as in YES' },
-  { word: 'WIN', phonemes: ['w', 'ɪ', 'n'], hint: 'w ɪ n as in WIN' },
-  { word: 'RING', phonemes: ['ɹ', 'ɪ', 'ŋ'], hint: 'ɹ ɪ ŋ as in RING' },
-  { word: 'LOG', phonemes: ['l', 'ɔ', 'ɡ'], hint: 'l ɔ ɡ as in LOG' },
-  { word: 'FAN', phonemes: ['f', 'æ', 'n'], hint: 'f æ n as in FAN' },
-  { word: 'VAN', phonemes: ['v', 'æ', 'n'], hint: 'v æ n as in VAN' },
-  { word: 'SUN', phonemes: ['s', 'ɐ', 'n'], hint: 's ɐ n as in SUN' },
-  { word: 'ZIP', phonemes: ['z', 'ɪ', 'p'], hint: 'z ɪ p as in ZIP' },
-  { word: 'GUM', phonemes: ['ɡ', 'ɐ', 'm'], hint: 'ɡ ɐ m as in GUM' },
-  { word: 'HAT', phonemes: ['h', 'æ', 't'], hint: 'h æ t as in HAT' },
-  { word: 'FORK', phonemes: ['f', 'oː', 'k'], hint: 'f oː k as in FORK' },
-];
+interface WordEntry {
+  word: string;
+  phonemes: string[];
+  hint: string;
+}
 
 export default function WordlePage() {
+  const [wordList, setWordList] = useState<WordEntry[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showPreview, setShowPreview] = useState(false);
   const [selectedPhonemes, setSelectedPhonemes] = useState<string[]>([]);
   const [useAutoHint, setUseAutoHint] = useState(true);
@@ -50,6 +25,25 @@ export default function WordlePage() {
   });
   const [generatedHTML, setGeneratedHTML] = useState('');
   const [debugMessage, setDebugMessage] = useState('');
+
+  // Fetch words from the database on mount
+  useEffect(() => {
+    fetch('/api/words')
+      .then(res => res.json())
+      .then(data => {
+        const formatted = data.map((w: any) => ({
+          word: w.word,
+          phonemes: w.phonemes,
+          hint: w.hint || ''
+        }));
+        setWordList(formatted);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Failed to fetch words:', err);
+        setLoading(false);
+      });
+  }, []);
 
   // Add phoneme to the word being built
   const addPhoneme = (phoneme: string) => {
@@ -71,22 +65,19 @@ export default function WordlePage() {
     }
   };
 
-  // Find the best matching word
+  // Find the best matching word from the database
   const findMatchingWord = (phonemes: string[]): { word: string; phoneme: string; hint: string } | null => {
     if (phonemes.length === 0) return null;
 
     // Try to find exact match
     for (const entry of wordList) {
-      const matches = entry.phonemes.every((p, index) => {
-        return index < phonemes.length && phonemes[index] === p;
-      });
-
-      if (matches && phonemes.length === entry.phonemes.length) {
+      if (entry.phonemes.length === phonemes.length &&
+          entry.phonemes.every((p, index) => p === phonemes[index])) {
         const phonemeStr = phonemes.join('');
         return {
           word: entry.word,
           phoneme: `/${phonemeStr}/`,
-          hint: entry.hint
+          hint: entry.hint || `${phonemeStr} as in ${entry.word}`
         };
       }
     }
@@ -107,29 +98,9 @@ export default function WordlePage() {
       }
     }
 
-    // No match found
+    // No match found - use display fallback
     const phonemeStr = phonemes.join('');
     const displayWord = phonemeStr.toUpperCase();
-    
-    if (phonemes.length === 1) {
-      const singlePhonemeMap: { [key: string]: string } = {
-        'b': 'BED', 'e': 'BED', 'd': 'BED',
-        'ɪ': 'BID', 'æ': 'HAT', 'ɐ': 'SUN',
-        'θ': 'THIN', 'ʃ': 'SHIP', 'tʃ': 'CHIN',
-        'dʒ': 'JAM', 'j': 'YES', 'w': 'WIN',
-        'ɹ': 'RING', 'l': 'LOG', 'f': 'FAN',
-        'v': 'VAN', 's': 'SUN', 'z': 'ZIP',
-        'ɡ': 'GUM', 'h': 'HAT'
-      };
-      const foundWord = singlePhonemeMap[phonemes[0]];
-      if (foundWord) {
-        return {
-          word: foundWord,
-          phoneme: `/${phonemes[0]}/`,
-          hint: `${phonemes[0]} as in ${foundWord}`
-        };
-      }
-    }
 
     return {
       word: displayWord,
@@ -145,7 +116,6 @@ export default function WordlePage() {
     }
 
     if (useAutoHint) {
-      // Auto-generate from phonemes
       const match = findMatchingWord(selectedPhonemes);
       if (match) {
         setWordleData({
@@ -160,12 +130,8 @@ export default function WordlePage() {
         } else if (selectedPhonemes.length >= 2) {
           setDebugMessage(`🔍 Matching: ${match.phoneme} → ${match.word}`);
         }
-      } else {
-        setDebugMessage('⚠️ No matching word found. Try different phonemes.');
       }
     } else {
-      // Use manual values - keep what the user typed
-      // Just validate that there's something entered
       if (!wordleData.word || !wordleData.phoneme) {
         setDebugMessage('⚠️ Please enter both a word and phoneme symbol.');
         return;
@@ -182,7 +148,7 @@ export default function WordlePage() {
     setWordleData({ ...wordleData, [field]: value });
   };
 
-  // --- HTML Generation ---
+  // --- HTML Generation for Download ---
   function generateWordleHTML(data: any): string {
     return `<!DOCTYPE html>
 <html lang="en">
@@ -297,7 +263,7 @@ export default function WordlePage() {
     </div>
     <div id="feedback" class="feedback">Enter a word to start playing!</div>
     <div id="attempts" class="attempts">Attempts: 0 / ${data.maxAttempts}</div>
-    <div class="footer">Phoneme Activity Builder - Assessment 1</div>
+    <div class="footer">Phoneme Activity Builder - Assessment 2</div>
 </div>
 
 <script>
@@ -343,6 +309,21 @@ export default function WordlePage() {
 </html>`;
   }
 
+  // --- Loading State ---
+  if (loading) {
+    return (
+      <div>
+        <h1 className="mb-4" style={{ color: 'var(--text-color)' }}>🎮 Create Wordle Activity</h1>
+        <div className="card">
+          <div className="card-body text-center">
+            <p>Loading words from database...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Main Render ---
   return (
     <div>
       <h1 className="mb-4" style={{ color: 'var(--text-color)' }}>🎮 Create Wordle Activity</h1>
@@ -398,11 +379,6 @@ export default function WordlePage() {
                   {useAutoHint ? '🔮 Auto-generate hint from phonemes' : '✏️ Use manual hint (edit below)'}
                 </label>
               </div>
-              <small className="text-muted">
-                {useAutoHint 
-                  ? 'Hint will be generated from selected phonemes' 
-                  : 'You can edit the hint fields below'}
-              </small>
             </div>
 
             {/* Debug message */}
@@ -460,7 +436,7 @@ export default function WordlePage() {
             </div>
             {useAutoHint && (
               <small className="text-muted d-block mt-1">
-                💡 Turn off "Auto-generate" to edit these fields manually
+                💡 Turn off Auto-generate to edit these fields manually
               </small>
             )}
           </div>
