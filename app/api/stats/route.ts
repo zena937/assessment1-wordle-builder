@@ -2,37 +2,44 @@ import { NextResponse } from 'next/server';
 import prisma from '@/app/lib/prisma';
 
 // GET /api/stats
-// Returns the aggregated observability metrics for the dashboard.
+// Returns aggregated observability metrics for the dashboard.
+// Counts are derived from the source-of-truth tables so they stay accurate.
+// UsageStat is a hot-counter cache we can fall back to under future scale.
 export async function GET() {
   try {
-    // ---- 1. Activity type counts ----
-    const [wordleCreated, wordsearchCreated] = await Promise.all([
-      prisma.usageStat.findUnique({ where: { metric: 'wordle_created' } }),
-      prisma.usageStat.findUnique({ where: { metric: 'wordsearch_created' } }),
+    // ---- 1. Activities created (from the Activity table) ----
+    const [wordleCreatedCount, wordsearchCreatedCount] = await Promise.all([
+      prisma.activity.count({ where: { type: 'WORDLE' } }),
+      prisma.activity.count({ where: { type: 'WORDSEARCH' } }),
     ]);
 
-    const [wordleGenerated, wordsearchGenerated] = await Promise.all([
-      prisma.usageStat.findUnique({ where: { metric: 'wordle_generated' } }),
-      prisma.usageStat.findUnique({ where: { metric: 'wordsearch_generated' } }),
+    // ---- 2. Generation events (from ActivityEvent) ----
+    const [wordleGeneratedCount, wordsearchGeneratedCount] = await Promise.all([
+      prisma.activityEvent.count({
+        where: { eventType: 'GENERATED', activityType: 'WORDLE' },
+      }),
+      prisma.activityEvent.count({
+        where: { eventType: 'GENERATED', activityType: 'WORDSEARCH' },
+      }),
     ]);
 
-    const [wordleFailed, wordsearchFailed] = await Promise.all([
-      prisma.usageStat.findUnique({ where: { metric: 'wordle_failed' } }),
-      prisma.usageStat.findUnique({ where: { metric: 'wordsearch_failed' } }),
+    const [wordleFailedCount, wordsearchFailedCount] = await Promise.all([
+      prisma.activityEvent.count({
+        where: { eventType: 'FAILED', activityType: 'WORDLE' },
+      }),
+      prisma.activityEvent.count({
+        where: { eventType: 'FAILED', activityType: 'WORDSEARCH' },
+      }),
     ]);
 
-    const wordleCreatedCount = wordleCreated?.value ?? 0;
-    const wordsearchCreatedCount = wordsearchCreated?.value ?? 0;
-    const wordleGeneratedCount = wordleGenerated?.value ?? 0;
-    const wordsearchGeneratedCount = wordsearchGenerated?.value ?? 0;
-    const wordleFailedCount = wordleFailed?.value ?? 0;
-    const wordsearchFailedCount = wordsearchFailed?.value ?? 0;
-
-    // ---- 2. Most-used activity type ----
+    // ---- 3. Most-used activity type ----
     const mostUsedActivityType =
-      wordleCreatedCount >= wordsearchCreatedCount ? 'WORDLE' : 'WORDSEARCH';
+      wordleGeneratedCount + wordleCreatedCount >=
+      wordsearchGeneratedCount + wordsearchCreatedCount
+        ? 'WORDLE'
+        : 'WORDSEARCH';
 
-    // ---- 3. Average time on page ----
+    // ---- 4. Average time on page ----
     const avgResult = await prisma.pageView.aggregate({
       _avg: { durationMs: true },
       _count: { _all: true },
@@ -41,14 +48,14 @@ export async function GET() {
     const avgTimeOnPageMs = Math.round(avgResult._avg.durationMs ?? 0);
     const totalPageViews = avgResult._count._all ?? 0;
 
-    // ---- 4. Total successful vs failed generations ----
+    // ---- 5. Generation totals ----
     const successfulGenerations = wordleGeneratedCount + wordsearchGeneratedCount;
     const failedGenerations = wordleFailedCount + wordsearchFailedCount;
 
-    // ---- 5. Word list size (for the "empty word list" alert) ----
+    // ---- 6. Word list size (for the "empty word list" alert) ----
     const totalWords = await prisma.word.count();
 
-    // ---- 6. Alerts / warnings ----
+    // ---- 7. Alerts / warnings ----
     const alerts: { level: 'warning' | 'error'; message: string }[] = [];
 
     if (totalWords === 0) {
@@ -72,7 +79,7 @@ export async function GET() {
       });
     }
 
-    // ---- 7. Response ----
+    // ---- 8. Response ----
     return NextResponse.json(
       {
         health: {
@@ -83,6 +90,10 @@ export async function GET() {
           wordle: wordleCreatedCount,
           wordsearch: wordsearchCreatedCount,
           total: wordleCreatedCount + wordsearchCreatedCount,
+        },
+        generationCounts: {
+          wordle: wordleGeneratedCount,
+          wordsearch: wordsearchGeneratedCount,
         },
         mostUsedActivityType,
         averageTimeOnPageMs: avgTimeOnPageMs,
@@ -104,7 +115,10 @@ export async function GET() {
   } catch (error) {
     console.error('Failed to fetch stats:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch stats' },
+      {
+        error: 'Failed to fetch stats',
+        detail: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }
