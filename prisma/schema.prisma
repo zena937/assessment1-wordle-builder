@@ -38,3 +38,34 @@ model ActivityWord {
   activity    Activity  @relation(fields: [activityId], references: [id], onDelete: Cascade)
   word        Word      @relation(fields: [wordId], references: [id], onDelete: Cascade)
 }
+
+model ActivityEvent {
+  id           String   @id @default(cuid())
+  eventType    String   // "CREATED" | "GENERATED" | "FAILED" | "VIEWED"
+  activityType String   // "WORDLE" | "WORDSEARCH"
+  activityId   String?
+  wordCount    Int?
+  errorMessage String?
+  createdAt    DateTime @default(now())
+
+  @@index([eventType])
+  @@index([activityType])
+  @@index([createdAt])
+}
+
+model PageView {
+  id         String   @id @default(cuid())
+  path       String
+  durationMs Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@index([path])
+  @@index([createdAt])
+}
+
+model UsageStat {
+  id        String   @id @default(cuid())
+  metric    String   @unique  // e.g. "wordle_created", "wordle_generated", "wordle_failed"
+  value     Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
