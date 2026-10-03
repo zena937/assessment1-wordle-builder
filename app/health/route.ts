@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/app/lib/prisma';
 
-// GET /api/health
-// Database-backed health check. Returns 200 only if the DB responds.
+// GET /health
+// Same as /api/health but at the root path required by the assessment brief.
 export async function GET() {
   const started = Date.now();
   try {
-    // Lightweight probe: ask Postgres to evaluate 1
     await prisma.$queryRaw`SELECT 1`;
     const dbLatencyMs = Date.now() - started;
 
