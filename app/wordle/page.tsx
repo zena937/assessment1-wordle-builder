@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import WordleGame from '../Components/WordleGame';
 import GenerateHTML from '../Components/GenerateHTML';
 import PhonemeKeyboard from '../Components/PhonemKeyboard';
@@ -21,43 +21,94 @@ export default function WordlePage() {
     word: 'THIN',
     phoneme: '/θɪn/',
     hint: 'θ ɪ n as in THIN',
-    maxAttempts: 6
+    maxAttempts: 6,
   });
   const [generatedHTML, setGeneratedHTML] = useState('');
   const [debugMessage, setDebugMessage] = useState('');
 
+  // 🔵 INSTRUMENTATION: track page entry time
+  const pageEnteredAt = useRef<number>(Date.now());
+
+  // 🔵 INSTRUMENTATION: fire-and-forget event logger
+  const logEvent = (
+    eventType: 'CREATED' | 'GENERATED' | 'FAILED' | 'VIEWED',
+    extra: { wordCount?: number; errorMessage?: string; activityId?: string } = {}
+  ) => {
+    fetch('/api/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        eventType,
+        activityType: 'WORDLE',
+        ...extra,
+      }),
+    }).catch((err) => console.error('Failed to log event:', err));
+  };
+
+  // 🔵 INSTRUMENTATION: log a VIEWED event when the page mounts
+  useEffect(() => {
+    logEvent('VIEWED');
+    pageEnteredAt.current = Date.now();
+  }, []);
+
+  // 🔵 INSTRUMENTATION: log time-on-page when the user leaves
+  useEffect(() => {
+    const sendPageView = () => {
+      const durationMs = Date.now() - pageEnteredAt.current;
+      const payload = JSON.stringify({ path: '/wordle', durationMs });
+      // sendBeacon is best-effort and won't block page unload
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(
+          '/api/pageview',
+          new Blob([payload], { type: 'application/json' })
+        );
+      } else {
+        fetch('/api/pageview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload,
+          keepalive: true,
+        }).catch(() => {});
+      }
+    };
+
+    window.addEventListener('beforeunload', sendPageView);
+    return () => {
+      window.removeEventListener('beforeunload', sendPageView);
+      // Also log on unmount (route change within the SPA)
+      sendPageView();
+    };
+  }, []);
+
   // Fetch words from the database on mount
   useEffect(() => {
     fetch('/api/words')
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         const formatted = data.map((w: any) => ({
           word: w.word,
           phonemes: w.phonemes,
-          hint: w.hint || ''
+          hint: w.hint || '',
         }));
         setWordList(formatted);
         setLoading(false);
       })
-      .catch(err => {
+      .catch((err) => {
         console.error('Failed to fetch words:', err);
         setLoading(false);
       });
   }, []);
 
-  // Add phoneme to the word being built
   const addPhoneme = (phoneme: string) => {
     setSelectedPhonemes([...selectedPhonemes, phoneme]);
     setDebugMessage('');
   };
 
-  // Clear selected phonemes
   const clearPhonemes = () => {
     setSelectedPhonemes([]);
     setDebugMessage('');
   };
 
-  // Remove last phoneme
   const removeLastPhoneme = () => {
     if (selectedPhonemes.length > 0) {
       setSelectedPhonemes(selectedPhonemes.slice(0, -1));
@@ -65,24 +116,25 @@ export default function WordlePage() {
     }
   };
 
-  // Find the best matching word from the database
-  const findMatchingWord = (phonemes: string[]): { word: string; phoneme: string; hint: string } | null => {
+  const findMatchingWord = (
+    phonemes: string[]
+  ): { word: string; phoneme: string; hint: string } | null => {
     if (phonemes.length === 0) return null;
 
-    // Try to find exact match
     for (const entry of wordList) {
-      if (entry.phonemes.length === phonemes.length &&
-          entry.phonemes.every((p, index) => p === phonemes[index])) {
+      if (
+        entry.phonemes.length === phonemes.length &&
+        entry.phonemes.every((p, index) => p === phonemes[index])
+      ) {
         const phonemeStr = phonemes.join('');
         return {
           word: entry.word,
           phoneme: `/${phonemeStr}/`,
-          hint: entry.hint || `${phonemeStr} as in ${entry.word}`
+          hint: entry.hint || `${phonemeStr} as in ${entry.word}`,
         };
       }
     }
 
-    // Try partial match
     for (const entry of wordList) {
       const matches = entry.phonemes.every((p, index) => {
         return index < phonemes.length && phonemes[index] === p;
@@ -93,25 +145,26 @@ export default function WordlePage() {
         return {
           word: entry.word,
           phoneme: `/${phonemeStr}/`,
-          hint: `${phonemeStr} as in ${entry.word}`
+          hint: `${phonemeStr} as in ${entry.word}`,
         };
       }
     }
 
-    // No match found - use display fallback
     const phonemeStr = phonemes.join('');
     const displayWord = phonemeStr.toUpperCase();
 
     return {
       word: displayWord,
       phoneme: `/${phonemeStr}/`,
-      hint: `${phonemeStr} as in ${displayWord}`
+      hint: `${phonemeStr} as in ${displayWord}`,
     };
   };
 
   const handleGenerate = () => {
+    // 🔵 INSTRUMENTATION: failure — no phonemes selected
     if (selectedPhonemes.length === 0) {
       setDebugMessage('⚠️ Please select at least one phoneme!');
+      logEvent('FAILED', { errorMessage: 'No phonemes selected' });
       return;
     }
 
@@ -122,18 +175,25 @@ export default function WordlePage() {
           word: match.word,
           phoneme: match.phoneme,
           hint: match.hint,
-          maxAttempts: 6
+          maxAttempts: 6,
         });
-        
-        if (selectedPhonemes.length >= 3 && match.word !== selectedPhonemes.join('').toUpperCase()) {
+
+        if (
+          selectedPhonemes.length >= 3 &&
+          match.word !== selectedPhonemes.join('').toUpperCase()
+        ) {
           setDebugMessage(`✅ Found: ${match.word} (${match.phoneme})`);
         } else if (selectedPhonemes.length >= 2) {
           setDebugMessage(`🔍 Matching: ${match.phoneme} → ${match.word}`);
         }
       }
     } else {
+      // 🔵 INSTRUMENTATION: failure — manual mode with missing fields
       if (!wordleData.word || !wordleData.phoneme) {
         setDebugMessage('⚠️ Please enter both a word and phoneme symbol.');
+        logEvent('FAILED', {
+          errorMessage: 'Manual mode: missing word or phoneme',
+        });
         return;
       }
       setDebugMessage(`✅ Using manual: ${wordleData.word} (${wordleData.phoneme})`);
@@ -142,6 +202,9 @@ export default function WordlePage() {
     const html = generateWordleHTML(wordleData);
     setGeneratedHTML(html);
     setShowPreview(true);
+
+    // 🔵 INSTRUMENTATION: success — an activity was generated
+    logEvent('GENERATED', { wordCount: wordList.length });
   };
 
   const updateField = (field: string, value: string) => {
@@ -313,7 +376,9 @@ export default function WordlePage() {
   if (loading) {
     return (
       <div>
-        <h1 className="mb-4" style={{ color: 'var(--text-color)' }}>🎮 Create Wordle Activity</h1>
+        <h1 className="mb-4" style={{ color: 'var(--text-color)' }}>
+          🎮 Create Wordle Activity
+        </h1>
         <div className="card">
           <div className="card-body text-center">
             <p>Loading words from database...</p>
@@ -326,20 +391,23 @@ export default function WordlePage() {
   // --- Main Render ---
   return (
     <div>
-      <h1 className="mb-4" style={{ color: 'var(--text-color)' }}>🎮 Create Wordle Activity</h1>
-      
+      <h1 className="mb-4" style={{ color: 'var(--text-color)' }}>
+        🎮 Create Wordle Activity
+      </h1>
+
       <div className="card mb-4">
         <div className="card-body">
           <h5 className="mb-3">Build Your Wordle</h5>
-          
-          {/* Phoneme Keyboard */}
+
           <div className="mb-3">
-            <label className="form-label">Click phonemes to build a word (3-5 phonemes):</label>
-            <PhonemeKeyboard 
+            <label className="form-label">
+              Click phonemes to build a word (3-5 phonemes):
+            </label>
+            <PhonemeKeyboard
               onPhonemeSelect={addPhoneme}
               selectedPhonemes={selectedPhonemes}
             />
-            
+
             <div className="mt-2">
               <strong>Selected phonemes: </strong>
               {selectedPhonemes.length > 0 ? (
@@ -349,14 +417,14 @@ export default function WordlePage() {
               ) : (
                 <span className="text-muted">Click phonemes above</span>
               )}
-              <button 
+              <button
                 onClick={removeLastPhoneme}
                 className="btn btn-outline-warning btn-sm ms-2"
                 disabled={selectedPhonemes.length === 0}
               >
                 ⌫ Backspace
               </button>
-              <button 
+              <button
                 onClick={clearPhonemes}
                 className="btn btn-outline-danger btn-sm ms-1"
                 disabled={selectedPhonemes.length === 0}
@@ -365,7 +433,6 @@ export default function WordlePage() {
               </button>
             </div>
 
-            {/* Toggle auto/manual hint */}
             <div className="mt-2">
               <div className="form-check form-switch">
                 <input
@@ -376,14 +443,18 @@ export default function WordlePage() {
                   onChange={() => setUseAutoHint(!useAutoHint)}
                 />
                 <label className="form-check-label" htmlFor="autoHintSwitch">
-                  {useAutoHint ? '🔮 Auto-generate hint from phonemes' : '✏️ Use manual hint (edit below)'}
+                  {useAutoHint
+                    ? '🔮 Auto-generate hint from phonemes'
+                    : '✏️ Use manual hint (edit below)'}
                 </label>
               </div>
             </div>
 
-            {/* Debug message */}
             {debugMessage && (
-              <div className="mt-2 alert alert-info py-1" style={{ fontSize: '0.9rem' }}>
+              <div
+                className="mt-2 alert alert-info py-1"
+                style={{ fontSize: '0.9rem' }}
+              >
                 {debugMessage}
               </div>
             )}
@@ -391,16 +462,15 @@ export default function WordlePage() {
 
           <hr />
 
-          {/* Manual Input */}
           <div className="mb-3">
             <label className="form-label">
               {useAutoHint ? 'Preview (auto-generated):' : 'Enter manually:'}
             </label>
             <div className="row">
               <div className="col-md-4">
-                <input 
-                  type="text" 
-                  className="form-control form-control-sm" 
+                <input
+                  type="text"
+                  className="form-control form-control-sm"
                   value={wordleData.word}
                   onChange={(e) => updateField('word', e.target.value)}
                   placeholder="Word (e.g., THIN)"
@@ -410,9 +480,9 @@ export default function WordlePage() {
                 <small className="text-muted">English word</small>
               </div>
               <div className="col-md-4">
-                <input 
-                  type="text" 
-                  className="form-control form-control-sm" 
+                <input
+                  type="text"
+                  className="form-control form-control-sm"
                   value={wordleData.phoneme}
                   onChange={(e) => updateField('phoneme', e.target.value)}
                   placeholder="Phoneme (e.g., /θ/)"
@@ -422,9 +492,9 @@ export default function WordlePage() {
                 <small className="text-muted">IPA symbol</small>
               </div>
               <div className="col-md-4">
-                <input 
-                  type="text" 
-                  className="form-control form-control-sm" 
+                <input
+                  type="text"
+                  className="form-control form-control-sm"
                   value={wordleData.hint}
                   onChange={(e) => updateField('hint', e.target.value)}
                   placeholder="Hint (e.g., θ as in THIN)"
@@ -440,8 +510,8 @@ export default function WordlePage() {
               </small>
             )}
           </div>
-          
-          <button 
+
+          <button
             onClick={handleGenerate}
             className="btn btn-success mt-2"
             disabled={selectedPhonemes.length === 0 && !useAutoHint}
@@ -449,19 +519,21 @@ export default function WordlePage() {
             🚀 Generate & Preview
           </button>
           {selectedPhonemes.length === 0 && useAutoHint && (
-            <small className="text-danger d-block mt-1">Select at least one phoneme first!</small>
+            <small className="text-danger d-block mt-1">
+              Select at least one phoneme first!
+            </small>
           )}
         </div>
       </div>
-      
+
       {showPreview && (
         <div className="card">
           <div className="card-body">
             <h5>📱 Preview</h5>
             <WordleGame wordleData={wordleData} />
             <hr />
-            <GenerateHTML 
-              htmlContent={generatedHTML} 
+            <GenerateHTML
+              htmlContent={generatedHTML}
               filename={`wordle-${wordleData.word.toLowerCase()}.html`}
             />
           </div>
