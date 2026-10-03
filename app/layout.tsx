@@ -27,6 +27,14 @@ export default function RootLayout({
 
   return (
     <html lang="en">
+      <head>
+        {/* 🔵 Accessibility fix: Lighthouse flagged a missing <title> */}
+        <title>Phoneme Activity Builder</title>
+        <meta
+          name="description"
+          content="Create phoneme-based Wordle and Word Search classroom activities for Speech Pathology students."
+        />
+      </head>
       <body>
         <Navbar toggleTheme={toggleTheme} theme={theme} />
         <main className="container mt-5 pt-5">

@@ -128,3 +128,27 @@ h1, h2, h3, h4, h5, h6 {
 .card-body {
   color: var(--text-color);
 }
+
+.text-muted {
+  color: #595959 !important;
+}
+
+small.text-muted,
+.small.text-muted {
+  color: #595959 !important;
+}
+
+/* If you use CSS custom properties, darken the muted text tokens */
+:root {
+  --text-muted: #595959;
+}
+
+[data-theme='dark'] .text-muted,
+[data-theme='dark'] small.text-muted,
+[data-theme='dark'] .small.text-muted {
+  color: #b8b8b8 !important;
+}
+
+[data-theme='dark'] {
+  --text-muted: #b8b8b8;
+}
