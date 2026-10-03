@@ -49,3 +49,8 @@ test-results/
 jmeter.log
 *.jtl
 tests/jmeter/results/
+
+# JMeter
+jmeter.log
+*.jtl
+tests/jmeter/report/
