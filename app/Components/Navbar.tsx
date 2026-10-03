@@ -77,6 +77,17 @@ const Navbar = ({ toggleTheme, theme }: NavbarProps) => {
                 Dashboard
               </Link>
             </li>
+            {/* 🔵 NEW: Words link between Dashboard and Wordle */}
+            <li className="nav-item">
+              <Link
+                href="/words"
+                className="nav-link"
+                style={{ color: 'var(--text-color)' }}
+                onClick={handleLinkClick}
+              >
+                Words
+              </Link>
+            </li>
             <li className="nav-item">
               <Link
                 href="/wordle"
