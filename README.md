@@ -14,7 +14,7 @@ This project extends the frontend builder from Assessment 1 with:
 - **Docker** - Containerized application for reproducibility
 - **Full CRUD** - Create, Read, Update, Delete operations
 
-## 🚀 Technologies
+## Technologies
 
 - **Next.js 16** - React framework with App Router
 - **TypeScript** - Type-safe code
